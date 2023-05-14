@@ -90,15 +90,20 @@ func main() {
 	}
 	defer f.pub.Close()
 
-	r := cr_node.TimeRate(100*time.Millisecond - 1*time.Millisecond)
+	//r := cr_node.TimeRate(100*time.Millisecond - 1*time.Millisecond)
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
+	x_now := time.Now()
+	x := time.Since(x_now)
+	eps := time.Millisecond * 10
 
 init:
+	x = time.Since(x_now)
+
 	select {
 	// publish a message every second
-	case <-r.SleepChan():
+	case <-time.After(100*time.Millisecond - x - eps):
 		if f.obstacle {
 			f.ackermann.Drive.SteeringAngle = float32(f.fgm_steering_angle)
 			f.ackermann.Drive.Speed = float32(f.fgm_speed)
