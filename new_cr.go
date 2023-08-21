@@ -15,7 +15,7 @@ import (
 
 const ctimemin int = 1
 const ctimemax int = 3
-const peridod int = 18
+const peridod int = 25
 
 type CR struct {
 	pp_steering_angle float32
@@ -105,6 +105,10 @@ func main() {
 
 	t_now := time.Now()
 	t := time.Since(t_now)
+
+	p:=cr_node.TimeRate(time.Duration(peridod)* time.Millisecond)
+	
+	
 	eps := time.Millisecond * 10
 	var processing_passage []string
 	var wait_passage []string
@@ -114,11 +118,19 @@ init:
 	goto ready
 ready:
 	c_now = time.Now()
+	if f.obstacle {
+			f.ackermann.Drive.SteeringAngle = float32(f.fgm_steering_angle)
+			f.ackermann.Drive.Speed = float32(f.fgm_speed)
+		} else {
+			f.ackermann.Drive.SteeringAngle = float32(f.pp_steering_angle)
+			f.ackermann.Drive.Speed = float32(f.pp_speed)
+		}
 	goto processing
 
 processing:
 	c = time.Since(c_now)
 	processing_passage = []string{"c==ctimemin", "c>ctimemin", "c>ctimemax"}
+
 	switch time_passage(processing_passage, c) {
 	case 0:
 		goto processing_1
@@ -127,27 +139,21 @@ processing:
 	case 2:
 		goto processing_3
 	case 3:
+
 		goto exp
 	}
 processing_1:
+
 	c = time.Since(c_now)
 	select {
 	// publish a message every second
 	case <-time.After(time.Duration(ctimemin)*time.Millisecond - c - eps):
-		if f.obstacle {
-			f.ackermann.Drive.SteeringAngle = float32(f.fgm_steering_angle)
-			f.ackermann.Drive.Speed = float32(f.fgm_speed)
-		} else {
-			f.ackermann.Drive.SteeringAngle = float32(f.pp_steering_angle)
-			f.ackermann.Drive.Speed = float32(f.pp_speed)
-		}
 		goto processing_2
 	case <-cc:
 		return
 	}
 processing_2:
 	c = time.Since(c_now)
-
 	select {
 	// publish a message every second
 	case <-time.After(time.Duration(ctimemin)*time.Millisecond - c):
@@ -159,6 +165,7 @@ processing_2:
 	}
 
 processing_3:
+	fmt.Println("pro3",c)
 	c = time.Since(c_now)
 
 	select {
@@ -172,10 +179,10 @@ processing_3:
 	}
 mid:
 	f.pub.Write(&f.ackermann)
-	t_now = time.Now()
 	goto wait
 wait:
 	t = time.Since(t_now)
+
 	wait_passage = []string{"t==peridod", "x>peridod"}
 	switch time_passage(wait_passage, t) {
 	case 0:
@@ -190,6 +197,7 @@ wait_1:
 	select {
 	// publish a message every second
 	case <-time.After(time.Duration(peridod)*time.Millisecond - t - eps):
+	//case <-p.SleepChan():	
 		goto wait_2
 	case <-cc:
 		return
@@ -199,31 +207,20 @@ wait_2:
 	select {
 	// publish a message every second
 	case <-time.After(time.Duration(peridod)*time.Millisecond - t):
+		fmt.Println(time.Duration(peridod)*time.Millisecond - t,time.Duration(peridod)*time.Millisecond,t)
 		goto exp
-	case <-time.After(0 * time.Millisecond):
+	//case <-time.After(0 * time.Millisecond):	
+	case <-p.SleepChan():	
+		t_now = time.Now()
 		goto ready
 	case <-cc:
 		return
 	}
 exp:
+	<-p.SleepChan()
+	t_now = time.Now()
 	fmt.Println("exp loc")
 	goto ready
-
-	// select {
-	// // publish a message every second
-	// case <-time.After(100*time.Millisecond - x - eps):
-	// 	if f.obstacle {
-	// 		f.ackermann.Drive.SteeringAngle = float32(f.fgm_steering_angle)
-	// 		f.ackermann.Drive.Speed = float32(f.fgm_speed)
-	// 	} else {
-	// 		f.ackermann.Drive.SteeringAngle = float32(f.pp_steering_angle)
-	// 		f.ackermann.Drive.Speed = float32(f.pp_speed)
-	// 	}
-	// 	f.pub.Write(&f.ackermann)
-	// 	goto init
-	// case <-c:
-	// 	return
-	// }
 
 }
 func (f *CR) driving(node *goroslib.Node) {
@@ -273,13 +270,14 @@ func time_passage(time_passage []string, ctime time.Duration) int {
 		if strings.Contains(val, "==") {
 
 			num, _ := strconv.Atoi(val[strings.Index(val, "==")+2:])
-			if time.Second*time.Duration(num) > ctime {
+			if time.Millisecond*time.Duration(num) < ctime {
+			//if time.Millisecond*time.Duration(num).After(ctime *time.Millisecond){		
 				return i
 			}
-		} else if strings.Contains(val, "<") {
-			num, _ := strconv.Atoi(val[strings.Index(val, "<")+1:])
-
-			if time.Second*time.Duration(num) == ctime {
+		} else if strings.Contains(val, ">") {
+			num, _ := strconv.Atoi(val[strings.Index(val, ">")+1:])
+			if time.Millisecond*time.Duration(num) > ctime {
+			//if time.Millisecond*time.Duration(num).Equal(ctime *time.Millisecond){
 				return i
 			}
 		}
