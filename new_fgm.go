@@ -112,16 +112,19 @@ init:
 ready:
 	c_now = time.Now()
 	//
-	var lsmsg *sensor_msgs.LaserScan
-	fmt.Println(len(f.lsMessages))
-	for msg := range f.lsMessages {
-		lsmsg=msg
-	}
-	proc_ranges := f.subCallback_scan(lsmsg)
+	//fmt.Println("a")
+	//var lsmsg *sensor_msgs.LaserScan
+	//fmt.Println(len(f.lsMessages))
+	//for msg := range f.lsMessages {
+	//	lsmsg=msg
+	//}
+	msg := <- f.lsMessages
+	//fmt.Println("aa")
+	proc_ranges := f.subCallback_scan(msg)
 	closest := f.argMin(proc_ranges)
 	min_index := closest - f.BUBBLE_RADIUS
 	max_index := closest + f.BUBBLE_RADIUS
-
+	//fmt.Println("aa")
 	if min_index < 0 {
 		min_index = 0
 	}
@@ -139,7 +142,7 @@ ready:
 	} else {
 		speed = f.STRAIGHTS_SPEED
 	}
-	fmsg := &std_msgs.Float32MultiArray{
+	fmsg = &std_msgs.Float32MultiArray{
 		Data: []float32{float32(steering_angle), float32(speed)},
 	}
 	//
