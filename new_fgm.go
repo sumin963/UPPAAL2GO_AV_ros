@@ -6,11 +6,17 @@ import (
 	"os"
 	"os/signal"
 	"time"
+	"strconv"
+	"strings"
 
 	"github.com/bluenviron/goroslib/v2"
 	"github.com/bluenviron/goroslib/v2/pkg/msgs/sensor_msgs"
 	"github.com/bluenviron/goroslib/v2/pkg/msgs/std_msgs"
 )
+
+const ctimemin int = 1
+const ctimemax int = 3
+const peridod int = 25
 
 type fgm struct {
 	BUBBLE_RADIUS            int
@@ -82,11 +88,159 @@ func main() {
 	}
 	defer f.pub.Close()
 
-	f.driving()
+	cc := make(chan os.Signal, 1)
+	signal.Notify(cc, os.Interrupt)
 
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
-	<-c
+	c_now := time.Now()
+	c := time.Since(c_now)
+
+	t_now := time.Now()
+	t := time.Since(t_now)
+
+	p:=fgm.TimeRate(time.Duration(peridod)* time.Millisecond)
+	
+	fmsg := &std_msgs.Float32MultiArray{
+		Data: []float32{float32(0), float32(0)},
+	}
+	eps := time.Millisecond * 10
+	var processing_passage []string
+	var wait_passage []string
+	goto init
+
+init:
+	goto ready
+ready:
+	c_now = time.Now()
+	//
+	var lsmsg *sensor_msgs.LaserScan
+	fmt.Println(len(f.lsMessages))
+	for msg := range f.lsMessages {
+		lsmsg=msg
+	}
+	proc_ranges := f.subCallback_scan(lsmsg)
+	closest := f.argMin(proc_ranges)
+	min_index := closest - f.BUBBLE_RADIUS
+	max_index := closest + f.BUBBLE_RADIUS
+
+	if min_index < 0 {
+		min_index = 0
+	}
+	if max_index >= len(proc_ranges) {
+		max_index = len(proc_ranges) - 1
+	}
+	proc_ranges = f.setRangeToZero(proc_ranges, min_index, max_index)
+	gap_start, gap_end := f.findMaxGap(proc_ranges)
+	best := f.findBestPoint(gap_start, gap_end, proc_ranges)
+	steering_angle := f.getAngle(best, len(proc_ranges))
+
+	speed := 0.0
+	if math.Abs(steering_angle) > f.STRAIGHTS_STEERING_ANGLE {
+		speed = f.CORNERS_SPEED
+	} else {
+		speed = f.STRAIGHTS_SPEED
+	}
+	fmsg := &std_msgs.Float32MultiArray{
+		Data: []float32{float32(steering_angle), float32(speed)},
+	}
+	//
+	goto processing
+
+processing:
+	c = time.Since(c_now)
+	processing_passage = []string{"c==ctimemin", "c>ctimemin", "c>ctimemax"}
+
+	switch time_passage(processing_passage, c) {
+	case 0:
+		goto processing_1
+	case 1:
+		goto processing_2
+	case 2:
+		goto processing_3
+	case 3:
+
+		goto exp
+	}
+processing_1:
+
+	c = time.Since(c_now)
+	select {
+	// publish a message every second
+	case <-time.After(time.Duration(ctimemin)*time.Millisecond - c - eps):
+		goto processing_2
+	case <-cc:
+		return
+	}
+processing_2:
+	c = time.Since(c_now)
+	select {
+	// publish a message every second
+	case <-time.After(time.Duration(ctimemin)*time.Millisecond - c):
+		goto processing_3
+	case <-time.After(0 * time.Millisecond):
+		goto mid
+	case <-cc:
+		return
+	}
+
+processing_3:
+	fmt.Println("pro3",c)
+	c = time.Since(c_now)
+
+	select {
+	// publish a message every second
+	case <-time.After(time.Duration(ctimemax)*time.Millisecond - c):
+		goto exp
+	case <-time.After(0 * time.Millisecond):
+		goto mid
+	case <-cc:
+		return
+	}
+mid:
+	//f.pub.Write(&f.ackermann)
+	f.pub.Write(fmsg)	
+	goto wait
+wait:
+	t = time.Since(t_now)
+
+	wait_passage = []string{"t==peridod", "x>peridod"}
+	switch time_passage(wait_passage, t) {
+	case 0:
+		goto wait_1
+	case 1:
+		goto wait_2
+	case 2:
+		goto exp
+	}
+wait_1:
+	t = time.Since(t_now)
+	select {
+	// publish a message every second
+	case <-time.After(time.Duration(peridod)*time.Millisecond - t - eps):
+	//case <-p.SleepChan():	
+		goto wait_2
+	case <-cc:
+		return
+	}
+wait_2:
+	t = time.Since(t_now)
+	select {
+	// publish a message every second
+	case <-time.After(time.Duration(peridod)*time.Millisecond - t):
+		fmt.Println(time.Duration(peridod)*time.Millisecond - t,time.Duration(peridod)*time.Millisecond,t)
+		goto exp
+	//case <-time.After(0 * time.Millisecond):	
+	case <-p.SleepChan():	
+		t_now = time.Now()
+		goto ready
+	case <-cc:
+		return
+	}
+exp:
+	<-p.SleepChan()
+	t_now = time.Now()
+	fmt.Println("exp loc")
+	goto ready
+
 }
 func (f *fgm) driving() {
 	// ticker := time.NewTicker(1000)
@@ -126,57 +280,7 @@ func (f *fgm) driving() {
 
 	// 	}
 	// }
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
-	x_now := time.Now()
-	x := time.Since(x_now)
-	eps := time.Millisecond * 10
-
-init:
-	x = time.Since(x_now)
-	select {
-	// publish a message every second
-	case <-time.After(100*time.Millisecond - x - eps):
-		var proc_ranges []float64
-		for msg := range f.lsMessages {
-			proc_ranges = f.subCallback_scan(msg)
-		}
-		closest := f.argMin(proc_ranges)
-		min_index := closest - f.BUBBLE_RADIUS
-		max_index := closest + f.BUBBLE_RADIUS
-
-		if min_index < 0 {
-			min_index = 0
-		}
-		if max_index >= len(proc_ranges) {
-			max_index = len(proc_ranges) - 1
-		}
-		proc_ranges = f.setRangeToZero(proc_ranges, min_index, max_index)
-		gap_start, gap_end := f.findMaxGap(proc_ranges)
-		best := f.findBestPoint(gap_start, gap_end, proc_ranges)
-		steering_angle := f.getAngle(best, len(proc_ranges))
-
-		speed := 0.0
-		if math.Abs(steering_angle) > f.STRAIGHTS_STEERING_ANGLE {
-			speed = f.CORNERS_SPEED
-		} else {
-			speed = f.STRAIGHTS_SPEED
-		}
-		msg := &std_msgs.Float32MultiArray{
-			Data: []float32{float32(steering_angle), float32(speed)},
-		}
-		// f.ackermann_data.Drive.SteeringAngle = float32(steering_angle)
-		// f.ackermann_data.Drive.Speed = float32(speed)
-
-		f.pub.Write(msg)
-		goto init
-	case <-c:
-		return
-	case <-time.After(100*time.Millisecond - x):
-		goto exp
-	}
-exp:
-	fmt.Println("exp location")
+	
 }
 
 func (f *fgm) setRangeToZero(procRanges []float64, minIndex, maxIndex int) []float64 {
@@ -315,4 +419,24 @@ func (f *fgm) getAngle(rangeIndex, rangeLen int) float64 {
 	steeringAngle := lidarAngle / 2
 
 	return steeringAngle
+}
+
+func time_passage(time_passage []string, ctime time.Duration) int {
+	for i, val := range time_passage { // 비교하는거 추가
+		if strings.Contains(val, "==") {
+
+			num, _ := strconv.Atoi(val[strings.Index(val, "==")+2:])
+			if time.Millisecond*time.Duration(num) < ctime {
+			//if time.Millisecond*time.Duration(num).After(ctime *time.Millisecond){		
+				return i
+			}
+		} else if strings.Contains(val, ">") {
+			num, _ := strconv.Atoi(val[strings.Index(val, ">")+1:])
+			if time.Millisecond*time.Duration(num) > ctime {
+			//if time.Millisecond*time.Duration(num).Equal(ctime *time.Millisecond){
+				return i
+			}
+		}
+	}
+	return len(time_passage)
 }
