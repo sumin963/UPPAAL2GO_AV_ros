@@ -231,10 +231,20 @@ wait_2:
 	// publish a message every second
 	case <-time.After(time.Duration(peridod)*time.Millisecond - t):
 		fmt.Println("exp", time.Now().Sub(t_now))
+		_, err := file.Write([]byte(time.Duration.String(time.Now().Sub(t_now)))) // s를 []byte 바이트 슬라이스로 변환, s를 파일에 저장
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
 		goto exp
 	//case <-time.After(0 * time.Millisecond):
 	case <-p.SleepChan():
 		fmt.Println("execute", time.Now().Sub(t_now))
+		_, err := file.Write([]byte(time.Duration.String(time.Now().Sub(t_now)))) // s를 []byte 바이트 슬라이스로 변환, s를 파일에 저장
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
 		t_now = time.Now()
 		goto ready
 	case <-cc:
