@@ -93,7 +93,20 @@ func main() {
 		fmt.Println(err)
 		return
 	}
-	defer file_exec.Close() // main 함수가 끝나기 직전에 파일을 닫음
+	defer file_exec.Close()
+	cmn := strconv.Itoa(ctimemin)
+	cm := strconv.Itoa(ctimemax)
+	pd := strconv.Itoa(peridod)
+	_, err = file_exec.Write([]byte(cmn)) // s를 []byte 바이트 슬라이스로 변환, s를 파일에 저장
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	_, err = file_exec.Write([]byte(cm)) // s를 []byte 바이트 슬라이스로 변환, s를 파일에 저장
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 
 	file_period, err := os.Create("fgm_period.txt") // hello.txt 파일 생성
 	if err != nil {
@@ -101,6 +114,12 @@ func main() {
 		return
 	}
 	defer file_period.Close() // main 함수가 끝나기 직전에 파일을 닫음
+
+	_, err = file_exec.Write([]byte(pd)) // s를 []byte 바이트 슬라이스로 변환, s를 파일에 저장
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 
 	cc := make(chan os.Signal, 1)
 	signal.Notify(cc, os.Interrupt)
@@ -214,7 +233,6 @@ processing_3:
 mid:
 	//f.pub.Write(&f.ackermann)
 	c = time.Since(c_now)
-
 	_, err = file_exec.Write([]byte(time.Duration.String(time.Now().Sub(c_now)))) // s를 []byte 바이트 슬라이스로 변환, s를 파일에 저장
 	if err != nil {
 		fmt.Println(err)
