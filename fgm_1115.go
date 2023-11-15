@@ -94,14 +94,8 @@ func main() {
 		return
 	}
 	defer file_exec.Close()
-	cmn := strconv.Itoa(ctimemin)
 	cm := strconv.Itoa(ctimemax)
 	pd := strconv.Itoa(peridod)
-	_, err = file_exec.Write([]byte(cmn)) // s를 []byte 바이트 슬라이스로 변환, s를 파일에 저장
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
 	_, err = file_exec.Write([]byte(cm)) // s를 []byte 바이트 슬라이스로 변환, s를 파일에 저장
 	if err != nil {
 		fmt.Println(err)
@@ -115,7 +109,7 @@ func main() {
 	}
 	defer file_period.Close() // main 함수가 끝나기 직전에 파일을 닫음
 
-	_, err = file_exec.Write([]byte(pd)) // s를 []byte 바이트 슬라이스로 변환, s를 파일에 저장
+	_, err = file_period.Write([]byte(pd)) // s를 []byte 바이트 슬라이스로 변환, s를 파일에 저장
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -267,7 +261,6 @@ wait_2:
 	select {
 	// publish a message every second
 	case <-time.After(time.Duration(peridod)*time.Millisecond - t):
-		fmt.Println("exp", time.Now().Sub(t_now))
 		_, err := file_period.Write([]byte(time.Duration.String(time.Now().Sub(t_now)))) // s를 []byte 바이트 슬라이스로 변환, s를 파일에 저장
 		if err != nil {
 			fmt.Println(err)
@@ -276,7 +269,6 @@ wait_2:
 		goto exp
 	//case <-time.After(0 * time.Millisecond):
 	case <-p.SleepChan():
-		fmt.Println("execute", time.Now().Sub(t_now))
 		_, err := file_period.Write([]byte(time.Duration.String(time.Now().Sub(t_now)))) // s를 []byte 바이트 슬라이스로 변환, s를 파일에 저장
 		if err != nil {
 			fmt.Println(err)
