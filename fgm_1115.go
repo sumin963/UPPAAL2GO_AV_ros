@@ -88,12 +88,19 @@ func main() {
 	}
 	defer f.pub.Close()
 
-	file, err := os.Create("fgm.txt") // hello.txt 파일 생성
+	file_exec, err := os.Create("fgm_execute.txt") // hello.txt 파일 생성
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	defer file.Close() // main 함수가 끝나기 직전에 파일을 닫음
+	defer file_exec.Close() // main 함수가 끝나기 직전에 파일을 닫음
+
+	file_period, err := os.Create("fgm_period.txt") // hello.txt 파일 생성
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer file_period.Close() // main 함수가 끝나기 직전에 파일을 닫음
 
 	cc := make(chan os.Signal, 1)
 	signal.Notify(cc, os.Interrupt)
@@ -193,6 +200,11 @@ processing_3:
 	select {
 	// publish a message every second
 	case <-time.After(time.Duration(ctimemax)*time.Millisecond - c):
+		_, err = file_exec.Write([]byte(time.Duration.String(time.Now().Sub(c_now)))) // s를 []byte 바이트 슬라이스로 변환, s를 파일에 저장
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
 		goto exp
 	case <-time.After(0 * time.Millisecond):
 		goto mid
@@ -201,6 +213,13 @@ processing_3:
 	}
 mid:
 	//f.pub.Write(&f.ackermann)
+	c = time.Since(c_now)
+
+	_, err = file_exec.Write([]byte(time.Duration.String(time.Now().Sub(c_now)))) // s를 []byte 바이트 슬라이스로 변환, s를 파일에 저장
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 	f.pub.Write(fmsg)
 	goto wait
 wait:
@@ -231,7 +250,7 @@ wait_2:
 	// publish a message every second
 	case <-time.After(time.Duration(peridod)*time.Millisecond - t):
 		fmt.Println("exp", time.Now().Sub(t_now))
-		_, err := file.Write([]byte(time.Duration.String(time.Now().Sub(t_now)))) // s를 []byte 바이트 슬라이스로 변환, s를 파일에 저장
+		_, err := file_period.Write([]byte(time.Duration.String(time.Now().Sub(t_now)))) // s를 []byte 바이트 슬라이스로 변환, s를 파일에 저장
 		if err != nil {
 			fmt.Println(err)
 			return
@@ -240,7 +259,7 @@ wait_2:
 	//case <-time.After(0 * time.Millisecond):
 	case <-p.SleepChan():
 		fmt.Println("execute", time.Now().Sub(t_now))
-		_, err := file.Write([]byte(time.Duration.String(time.Now().Sub(t_now)))) // s를 []byte 바이트 슬라이스로 변환, s를 파일에 저장
+		_, err := file_period.Write([]byte(time.Duration.String(time.Now().Sub(t_now)))) // s를 []byte 바이트 슬라이스로 변환, s를 파일에 저장
 		if err != nil {
 			fmt.Println(err)
 			return
