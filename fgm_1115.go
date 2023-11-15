@@ -234,7 +234,7 @@ wait_2:
 		goto exp
 	//case <-time.After(0 * time.Millisecond):
 	case <-p.SleepChan():
-		fmt.Println("execute", time.Duration(peridod)*time.Millisecond-t)
+		fmt.Println("execute", time.Now().Sub(t_now))
 		t_now = time.Now()
 		goto ready
 	case <-cc:
