@@ -230,7 +230,7 @@ wait_2:
 	select {
 	// publish a message every second
 	case <-time.After(time.Duration(peridod)*time.Millisecond - t):
-		fmt.Println(time.Duration(peridod)*time.Millisecond-t, time.Duration(peridod)*time.Millisecond, t)
+		fmt.Println("exp", time.Now().Sub(t_now))
 		goto exp
 	//case <-time.After(0 * time.Millisecond):
 	case <-p.SleepChan():
