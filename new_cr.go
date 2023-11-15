@@ -106,25 +106,26 @@ func main() {
 	t_now := time.Now()
 	t := time.Since(t_now)
 
-	p:=cr_node.TimeRate(time.Duration(peridod)* time.Millisecond)
-	
-	
+	p := cr_node.TimeRate(time.Duration(peridod) * time.Millisecond)
+
 	eps := time.Millisecond * 10
 	var processing_passage []string
 	var wait_passage []string
 	goto init
 
 init:
+	c_now = time.Now()
+	t_now = time.Now()
 	goto ready
 ready:
-	c_now = time.Now()
 	if f.obstacle {
-			f.ackermann.Drive.SteeringAngle = float32(f.fgm_steering_angle)
-			f.ackermann.Drive.Speed = float32(f.fgm_speed)
-		} else {
-			f.ackermann.Drive.SteeringAngle = float32(f.pp_steering_angle)
-			f.ackermann.Drive.Speed = float32(f.pp_speed)
-		}
+		f.ackermann.Drive.SteeringAngle = float32(f.fgm_steering_angle)
+		f.ackermann.Drive.Speed = float32(f.fgm_speed)
+	} else {
+		f.ackermann.Drive.SteeringAngle = float32(f.pp_steering_angle)
+		f.ackermann.Drive.Speed = float32(f.pp_speed)
+	}
+	c_now = time.Now()
 	goto processing
 
 processing:
@@ -139,14 +140,12 @@ processing:
 	case 2:
 		goto processing_3
 	case 3:
-
 		goto exp
 	}
 processing_1:
 
 	c = time.Since(c_now)
 	select {
-	// publish a message every second
 	case <-time.After(time.Duration(ctimemin)*time.Millisecond - c - eps):
 		goto processing_2
 	case <-cc:
@@ -155,7 +154,6 @@ processing_1:
 processing_2:
 	c = time.Since(c_now)
 	select {
-	// publish a message every second
 	case <-time.After(time.Duration(ctimemin)*time.Millisecond - c):
 		goto processing_3
 	case <-time.After(0 * time.Millisecond):
@@ -165,7 +163,7 @@ processing_2:
 	}
 
 processing_3:
-	fmt.Println("pro3",c)
+	fmt.Println("pro3", c)
 	c = time.Since(c_now)
 
 	select {
@@ -197,7 +195,7 @@ wait_1:
 	select {
 	// publish a message every second
 	case <-time.After(time.Duration(peridod)*time.Millisecond - t - eps):
-	//case <-p.SleepChan():	
+		//case <-p.SleepChan():
 		goto wait_2
 	case <-cc:
 		return
@@ -207,10 +205,10 @@ wait_2:
 	select {
 	// publish a message every second
 	case <-time.After(time.Duration(peridod)*time.Millisecond - t):
-		fmt.Println(time.Duration(peridod)*time.Millisecond - t,time.Duration(peridod)*time.Millisecond,t)
+		fmt.Println(time.Duration(peridod)*time.Millisecond-t, time.Duration(peridod)*time.Millisecond, t)
 		goto exp
-	//case <-time.After(0 * time.Millisecond):	
-	case <-p.SleepChan():	
+	//case <-time.After(0 * time.Millisecond):
+	case <-p.SleepChan():
 		t_now = time.Now()
 		goto ready
 	case <-cc:
@@ -271,13 +269,13 @@ func time_passage(time_passage []string, ctime time.Duration) int {
 
 			num, _ := strconv.Atoi(val[strings.Index(val, "==")+2:])
 			if time.Millisecond*time.Duration(num) < ctime {
-			//if time.Millisecond*time.Duration(num).After(ctime *time.Millisecond){		
+				//if time.Millisecond*time.Duration(num).After(ctime *time.Millisecond){
 				return i
 			}
 		} else if strings.Contains(val, ">") {
 			num, _ := strconv.Atoi(val[strings.Index(val, ">")+1:])
 			if time.Millisecond*time.Duration(num) > ctime {
-			//if time.Millisecond*time.Duration(num).Equal(ctime *time.Millisecond){
+				//if time.Millisecond*time.Duration(num).Equal(ctime *time.Millisecond){
 				return i
 			}
 		}
