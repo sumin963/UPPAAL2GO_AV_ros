@@ -138,61 +138,74 @@ func main() {
 	var wait_passage []string
 	goto init
 
+// 초기화 단계: 현재 시간 기록
 init:
-	c_now = time.Now()
-	t_now = time.Now()
+	c_now = time.Now() // 처리 시작 시간 기록
+	t_now = time.Now() // 전체 주기 시작 시간 기록
 	goto ready
+
+// 주 처리 루프 시작
 ready:
+	// 장애물이 있는 경우 FGM(Follow-the-Gap) 값을 사용
 	if f.obstacle {
 		f.ackermann.Drive.SteeringAngle = float32(f.fgm_steering_angle)
 		f.ackermann.Drive.Speed = float32(f.fgm_speed)
 	} else {
+		// 장애물이 없을 경우 PP(Pure Pursuit) 값을 사용
 		f.ackermann.Drive.SteeringAngle = float32(f.pp_steering_angle)
 		f.ackermann.Drive.Speed = float32(f.pp_speed)
 	}
-	c_now = time.Now()
+
+	c_now = time.Now() // 처리 시작 시간 갱신
 	goto processing
 
+// 처리 시간 측정 및 시간 범위 분류
 processing:
-	c = time.Since(c_now)
+	c = time.Since(c_now) // 현재까지의 경과 시간 측정
+	// 시간 조건에 따라 다음 단계 분기 (ctimemin, ctimemax: 상한/하한 경계)
 	processing_passage = []string{"c==ctimemin", "c>ctimemin", "c>ctimemax"}
 
 	switch time_passage(processing_passage, c) {
 	case 0:
-		goto processing_1
+		goto processing_1 // 최소 실행 시간 도달 전
 	case 1:
-		goto processing_2
+		goto processing_2 // 최소 시간 초과, 최대는 아직 아님
 	case 2:
-		goto processing_3
+		goto processing_3 // 최대 시간 도달 전
 	case 3:
-		goto exp
+		goto exp // 시간 초과로 처리 종료
 	}
-processing_1:
 
+// 최소 시간까지 대기
+processing_1:
 	c = time.Since(c_now)
 	select {
 	case <-time.After(time.Duration(ctimemin)*time.Millisecond - c - eps):
 		goto processing_2
-	case <-cc:
+	case <-cc: // 종료 시그널
 		return
 	}
+
+// 중간 상태 처리 또는 빨리 지나가기
 processing_2:
 	c = time.Since(c_now)
 	select {
 	case <-time.After(time.Duration(ctimemin)*time.Millisecond - c):
-		goto processing_3
+		goto processing_3 // 남은 최소 시간 대기
 	case <-time.After(0 * time.Millisecond):
-		goto mid
+		goto mid // 비동기 상황으로 바로 발행
 	case <-cc:
 		return
 	}
 
+// 최대 시간까지 대기하거나 중간 발행
 processing_3:
 	fmt.Println("pro3", c)
 	c = time.Since(c_now)
 
 	select {
 	case <-time.After(time.Duration(ctimemax)*time.Millisecond - c):
+		// 최대 시간 도달 후 처리 시간 기록
 		_, err = file_exec.Write([]byte(time.Duration.String(time.Now().Sub(c_now)))) 
 		if err != nil {
 			fmt.Println(err)
@@ -204,17 +217,22 @@ processing_3:
 	case <-cc:
 		return
 	}
+
+// 제어 명령 발행 및 처리 시간 기록
 mid:
 	_, err = file_exec.Write([]byte(time.Duration.String(time.Now().Sub(c_now)))) 
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	f.pub.Write(&f.ackermann)
+	f.pub.Write(&f.ackermann) // 실제 제어 명령 발행 (예: /cmd_vel)
 	goto wait
+
+// 다음 주기 대기
 wait:
 	t = time.Since(t_now)
 
+	// 주기 도달 여부 확인 (peridod: 목표 주기)
 	wait_passage = []string{"t==peridod", "x>peridod"}
 	switch time_passage(wait_passage, t) {
 	case 0:
@@ -224,29 +242,30 @@ wait:
 	case 2:
 		goto exp
 	}
+
+// 남은 주기 시간까지 대기
 wait_1:
 	t = time.Since(t_now)
 	select {
-	// publish a message every second
 	case <-time.After(time.Duration(peridod)*time.Millisecond - t - eps):
-		//case <-p.SleepChan():
 		goto wait_2
 	case <-cc:
 		return
 	}
+
+// 주기 종료 또는 sleep 채널을 통해 제어
 wait_2:
 	t = time.Since(t_now)
 	select {
-	// publish a message every second
 	case <-time.After(time.Duration(peridod)*time.Millisecond - t):
+		// 주기 내 종료 시 처리 시간 기록
 		_, err := file_period.Write([]byte(time.Duration.String(time.Now().Sub(t_now)))) 
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
 		goto exp
-	//case <-time.After(0 * time.Millisecond):
-	case <-p.SleepChan():
+	case <-p.SleepChan(): // sleep 이벤트 발생 시 주기 갱신 및 루프 재시작
 		_, err := file_period.Write([]byte(time.Duration.String(time.Now().Sub(t_now)))) 
 		if err != nil {
 			fmt.Println(err)
@@ -257,12 +276,13 @@ wait_2:
 	case <-cc:
 		return
 	}
+
+// 종료 또는 반복 루프 재시작
 exp:
-	<-p.SleepChan()
+	<-p.SleepChan() // SleepChan으로 블록 후 재시작
 	t_now = time.Now()
 	fmt.Println("exp loc")
 	goto ready
-
 }
 func (f *CR) driving(node *goroslib.Node) {
 	r := node.TimeRate(1 * time.Millisecond)
