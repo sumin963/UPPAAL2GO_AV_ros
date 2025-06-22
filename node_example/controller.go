@@ -96,7 +96,7 @@ func main() {
 	}
 	defer f.pub.Close()
 
-	file_exec, err := os.Create("cr_execute.txt") // hello.txt 파일 생성
+	file_exec, err := os.Create("cr_execute.txt") 
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -104,20 +104,20 @@ func main() {
 	defer file_exec.Close()
 	cm := strconv.Itoa(ctimemax)
 	pd := strconv.Itoa(peridod)
-	_, err = file_exec.Write([]byte(cm)) // s를 []byte 바이트 슬라이스로 변환, s를 파일에 저장
+	_, err = file_exec.Write([]byte(cm)) 
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 
-	file_period, err := os.Create("cr_period.txt") // hello.txt 파일 생성
+	file_period, err := os.Create("cr_period.txt") 
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	defer file_period.Close() // main 함수가 끝나기 직전에 파일을 닫음
+	defer file_period.Close() 
 
-	_, err = file_period.Write([]byte(pd)) // s를 []byte 바이트 슬라이스로 변환, s를 파일에 저장
+	_, err = file_period.Write([]byte(pd))
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -194,7 +194,7 @@ processing_3:
 	select {
 	// publish a message every second
 	case <-time.After(time.Duration(ctimemax)*time.Millisecond - c):
-		_, err = file_exec.Write([]byte(time.Duration.String(time.Now().Sub(c_now)))) // s를 []byte 바이트 슬라이스로 변환, s를 파일에 저장
+		_, err = file_exec.Write([]byte(time.Duration.String(time.Now().Sub(c_now)))) 
 		if err != nil {
 			fmt.Println(err)
 			return
@@ -206,7 +206,7 @@ processing_3:
 		return
 	}
 mid:
-	_, err = file_exec.Write([]byte(time.Duration.String(time.Now().Sub(c_now)))) // s를 []byte 바이트 슬라이스로 변환, s를 파일에 저장
+	_, err = file_exec.Write([]byte(time.Duration.String(time.Now().Sub(c_now)))) 
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -240,7 +240,7 @@ wait_2:
 	select {
 	// publish a message every second
 	case <-time.After(time.Duration(peridod)*time.Millisecond - t):
-		_, err := file_period.Write([]byte(time.Duration.String(time.Now().Sub(t_now)))) // s를 []byte 바이트 슬라이스로 변환, s를 파일에 저장
+		_, err := file_period.Write([]byte(time.Duration.String(time.Now().Sub(t_now)))) 
 		if err != nil {
 			fmt.Println(err)
 			return
@@ -248,7 +248,7 @@ wait_2:
 		goto exp
 	//case <-time.After(0 * time.Millisecond):
 	case <-p.SleepChan():
-		_, err := file_period.Write([]byte(time.Duration.String(time.Now().Sub(t_now)))) // s를 []byte 바이트 슬라이스로 변환, s를 파일에 저장
+		_, err := file_period.Write([]byte(time.Duration.String(time.Now().Sub(t_now)))) 
 		if err != nil {
 			fmt.Println(err)
 			return
@@ -308,7 +308,7 @@ func (f *CR) onMessage_OD(msg *std_msgs.Bool) {
 
 }
 func time_passage(time_passage []string, ctime time.Duration) int {
-	for i, val := range time_passage { // 비교하는거 추가
+	for i, val := range time_passage { 
 		if strings.Contains(val, "==") {
 
 			num, _ := strconv.Atoi(val[strings.Index(val, "==")+2:])
