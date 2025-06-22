@@ -192,7 +192,6 @@ processing_3:
 	c = time.Since(c_now)
 
 	select {
-	// publish a message every second
 	case <-time.After(time.Duration(ctimemax)*time.Millisecond - c):
 		_, err = file_exec.Write([]byte(time.Duration.String(time.Now().Sub(c_now)))) 
 		if err != nil {
