@@ -209,7 +209,6 @@ processing_2:
 	}
 
 processing_3:
-	fmt.Println("pro3", c)
 	c = time.Since(c_now)
 
 	select {

@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bufio"
+	"encoding/csv"
 	"fmt"
 	"math"
 	"os"
@@ -10,76 +12,121 @@ import (
 	"time"
 
 	"github.com/bluenviron/goroslib/v2"
-	"github.com/bluenviron/goroslib/v2/pkg/msgs/sensor_msgs"
+	"github.com/bluenviron/goroslib/v2/pkg/msgs/nav_msgs"
 	"github.com/bluenviron/goroslib/v2/pkg/msgs/std_msgs"
 )
 
-const ctimemin int = 1
-const ctimemax int = 3
-const peridod int = 25
+type Pure_Pursuit struct {
+	LOOKAHEAD_MAX     float64
+	LOOKAHEAD_MIN     float64
+	SPEED_MAX         float64
+	SPEED_MIN         float64
+	MSC_MUXSIZE       int
+	MU                float64
+	RATE              float64
+	WPS_FILE_LOCATION string
 
-type fgm struct {
-	BUBBLE_RADIUS            int
-	PREPROCESS_CONV_SIZE     int // PREPROCESS_consecutive_SIZE
-	BEST_POINT_CONV_SIZE     int
-	MAX_LIDAR_DIST           int
+	CURRENT_WP_CHECK_OFFSET float64
+	DX_GAIN                 float64
+	RACECAR_LENGTH          float64
+	GRAVITY_ACCELERATION    float64
+
+	waypoints                 [][]float64
+	wp_len                    int
+	wp_index_current          int
+	current_position          []float64
+	lookahead_desired         float64
+	steering_direction        float64
+	goal_path_radius          float64
+	goal_path_theta           float64
+	actual_lookahead          float64
+	transformed_desired_point []float64
+	desired_point             []float64
+	dx                        float64
+
+	nearest_distance float64
+	manualSpeedArray []float64
+	wa               float64
+
+	STRAIGHTS_SPEED          float64
+	CORNERS_SPEED            float64
 	STRAIGHTS_STEERING_ANGLE float64 // 10 degrees
 
-	robot_scale      float64
-	radians_per_elem float64
-	STRAIGHTS_SPEED  float64
-	CORNERS_SPEED    float64
+	odMessages chan *nav_msgs.Odometry
 
-	lsMessages chan *sensor_msgs.LaserScan
-
+	// pp_cr PP_CR
 	pub *goroslib.Publisher
 }
 
-func new_fgm() *fgm {
-	f := fgm{}
-	f.BUBBLE_RADIUS = 160
-	f.PREPROCESS_CONV_SIZE = 100 // PREPROCESS_consecutive_SIZE
-	f.BEST_POINT_CONV_SIZE = 80
-	f.MAX_LIDAR_DIST = 3000000
-	f.STRAIGHTS_STEERING_ANGLE = math.Pi / 18
+func new_Pure_Pursuit() *Pure_Pursuit {
+	f := Pure_Pursuit{}
 
-	f.robot_scale = 0.3302
-	f.radians_per_elem = 0
+	f.LOOKAHEAD_MAX = 2.5
+	f.LOOKAHEAD_MIN = 1.0
+	f.SPEED_MAX = 4.0
+	f.SPEED_MIN = 1.5
+	f.MSC_MUXSIZE = 0
+	f.MU = 1
+	f.RATE = 100
+	f.WPS_FILE_LOCATION = "/home/voice1/UPPAAL2GO_AV_ros-main/src/map/SOCHI.csv"
+
+	f.CURRENT_WP_CHECK_OFFSET = 2.0
+	f.DX_GAIN = 2.5
+	f.RACECAR_LENGTH = 0.325
+	f.GRAVITY_ACCELERATION = 9.81
+
+	f.waypoints = f.get_waypoint()
+	f.wp_len = len(f.waypoints)
+	f.wp_index_current = 0
+	f.current_position = []float64{}
+	f.lookahead_desired = 0
+	f.steering_direction = 0
+	f.goal_path_radius = 0
+	f.goal_path_theta = 0
+	f.actual_lookahead = 0
+	f.transformed_desired_point = []float64{}
+	f.desired_point = []float64{}
+	f.dx = 0
+	f.nearest_distance = 0
+	f.manualSpeedArray = []float64{}
+	f.wa = 0
 	f.STRAIGHTS_SPEED = 6.0
 	f.CORNERS_SPEED = 2.0
+	f.STRAIGHTS_STEERING_ANGLE = math.Pi / 18
+
 	return &f
 }
 
 func main() {
-	f := new_fgm()
+	f := new_Pure_Pursuit()
 
-	fgm, err := goroslib.NewNode(goroslib.NodeConf{
-		Name:          "fgm",
+	pp_node, err := goroslib.NewNode(goroslib.NodeConf{
+		Name:          "pure_pursuit",
 		MasterAddress: "127.0.0.1:11311",
 	})
 	if err != nil {
 		panic(err)
 	}
-	defer fgm.Close()
+	defer pp_node.Close()
 
-	f.lsMessages = make(chan *sensor_msgs.LaserScan, 10)
+	f.odMessages = make(chan *nav_msgs.Odometry, 10)
 
-	lssub, err := goroslib.NewSubscriber(goroslib.SubscriberConf{
-		Node:  fgm,
-		Topic: "/scan",
-		Callback: func(msg *sensor_msgs.LaserScan) {
-			f.lsMessages <- msg
+	odomsub, err := goroslib.NewSubscriber(goroslib.SubscriberConf{
+		Node:  pp_node,
+		Topic: "/vesc/odom",
+		Callback: func(msg *nav_msgs.Odometry) {
+			f.odMessages <- msg
 		},
 	})
 	if err != nil {
 		fmt.Println("Most likely the topic this subscriber wants to attach to does not exist")
 		panic(err)
 	}
-	defer lssub.Close()
+	defer odomsub.Close()
 
 	f.pub, err = goroslib.NewPublisher(goroslib.PublisherConf{
-		Node:  fgm,
-		Topic: "FGM_CR",
+		Node:  pp_node,
+		Topic: "PP_CR",
 		Msg:   &std_msgs.Float32MultiArray{},
 	})
 	if err != nil {
@@ -87,33 +134,6 @@ func main() {
 		panic(err)
 	}
 	defer f.pub.Close()
-
-	file_exec, err := os.Create("fgm_execute.txt") // hello.txt 파일 생성
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	defer file_exec.Close()
-	cm := strconv.Itoa(ctimemax)
-	pd := strconv.Itoa(peridod)
-	_, err = file_exec.Write([]byte(cm)) // s를 []byte 바이트 슬라이스로 변환, s를 파일에 저장
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-
-	file_period, err := os.Create("fgm_period.txt") // hello.txt 파일 생성
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	defer file_period.Close() // main 함수가 끝나기 직전에 파일을 닫음
-
-	_, err = file_period.Write([]byte(pd)) // s를 []byte 바이트 슬라이스로 변환, s를 파일에 저장
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
 
 	cc := make(chan os.Signal, 1)
 	signal.Notify(cc, os.Interrupt)
@@ -124,7 +144,7 @@ func main() {
 	t_now := time.Now()
 	t := time.Since(t_now)
 
-	p := fgm.TimeRate(time.Duration(peridod) * time.Millisecond)
+	p := pp_node.TimeRate(time.Duration(peridod) * time.Millisecond)
 
 	fmsg := &std_msgs.Float32MultiArray{
 		Data: []float32{float32(0), float32(0)},
@@ -139,34 +159,7 @@ init:
 ready:
 	c_now = time.Now()
 
-	msg := <-f.lsMessages
-
-	//
-	proc_ranges := f.subCallback_scan(msg)
-	closest := f.argMin(proc_ranges)
-	min_index := closest - f.BUBBLE_RADIUS
-	max_index := closest + f.BUBBLE_RADIUS
-
-	if min_index < 0 {
-		min_index = 0
-	}
-	if max_index >= len(proc_ranges) {
-		max_index = len(proc_ranges) - 1
-	}
-	proc_ranges = f.setRangeToZero(proc_ranges, min_index, max_index)
-	gap_start, gap_end := f.findMaxGap(proc_ranges)
-	best := f.findBestPoint(gap_start, gap_end, proc_ranges)
-	steering_angle := f.getAngle(best, len(proc_ranges))
-
-	speed := 0.0
-	if math.Abs(steering_angle) > f.STRAIGHTS_STEERING_ANGLE {
-		speed = f.CORNERS_SPEED
-	} else {
-		speed = f.STRAIGHTS_SPEED
-	}
-	fmsg = &std_msgs.Float32MultiArray{
-		Data: []float32{float32(steering_angle), float32(speed)},
-	}
+	f.driving()
 	//
 
 	goto processing
@@ -215,7 +208,7 @@ processing_3:
 	select {
 	// publish a message every second
 	case <-time.After(time.Duration(ctimemax)*time.Millisecond - c):
-		_, err = file_exec.Write([]byte(time.Duration.String(time.Now().Sub(c_now)))) // s를 []byte 바이트 슬라이스로 변환, s를 파일에 저장
+		//_, err = file_exec.Write([]byte(time.Duration.String(time.Now().Sub(c_now)))) // s를 []byte 바이트 슬라이스로 변환, s를 파일에 저장
 		if err != nil {
 			fmt.Println(err)
 			return
@@ -228,7 +221,7 @@ processing_3:
 	}
 mid:
 	c = time.Since(c_now)
-	_, err = file_exec.Write([]byte(time.Duration.String(time.Now().Sub(c_now)))) // s를 []byte 바이트 슬라이스로 변환, s를 파일에 저장
+	//_, err = file_exec.Write([]byte(time.Duration.String(time.Now().Sub(c_now)))) // s를 []byte 바이트 슬라이스로 변환, s를 파일에 저장
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -262,7 +255,7 @@ wait_2:
 	select {
 	// publish a message every second
 	case <-time.After(time.Duration(peridod)*time.Millisecond - t):
-		_, err := file_period.Write([]byte(time.Duration.String(time.Now().Sub(t_now)))) // s를 []byte 바이트 슬라이스로 변환, s를 파일에 저장
+		//_, err := file_period.Write([]byte(time.Duration.String(time.Now().Sub(t_now)))) // s를 []byte 바이트 슬라이스로 변환, s를 파일에 저장
 		if err != nil {
 			fmt.Println(err)
 			return
@@ -270,7 +263,7 @@ wait_2:
 		goto exp
 	//case <-time.After(0 * time.Millisecond):
 	case <-p.SleepChan():
-		_, err := file_period.Write([]byte(time.Duration.String(time.Now().Sub(t_now)))) // s를 []byte 바이트 슬라이스로 변환, s를 파일에 저장
+		//_, err := file_period.Write([]byte(time.Duration.String(time.Now().Sub(t_now)))) // s를 []byte 바이트 슬라이스로 변환, s를 파일에 저장
 		if err != nil {
 			fmt.Println(err)
 			return
@@ -285,163 +278,219 @@ exp:
 	t_now = time.Now()
 	fmt.Println("exp loc")
 	goto ready
-
 }
+func (f *Pure_Pursuit) driving() {
+	ticker := time.NewTicker(10 * time.Millisecond)
+	for msg := range f.odMessages {
+		select {
+		case <-ticker.C:
+			x_now := time.Now()
+			f.Odome(msg)
 
-func (f *fgm) setRangeToZero(procRanges []float64, minIndex, maxIndex int) []float64 {
-	if minIndex >= 0 && maxIndex < len(procRanges) && minIndex <= maxIndex {
-		for i := minIndex; i <= maxIndex; i++ {
-			procRanges[i] = 0
-		}
-	}
-	return procRanges
-}
-func (f *fgm) subCallback_scan(msg_sub *sensor_msgs.LaserScan) []float64 {
-	ranges := msg_sub.Ranges
+			f.getDx()
 
-	f.radians_per_elem = (2 * math.Pi) / float64(len(ranges))
-	procRanges := ranges[180 : len(ranges)-180]
+			f.getLookaheadDesired()
 
-	preprocessConvSize := 5 // 임의의 값을 설정해 주세요
-	var convKernel []float64
-	for i := 0; i < preprocessConvSize; i++ {
-		convKernel = append(convKernel, 1.0)
-	}
+			f.find_desired_wp()
 
-	var convResult []float64
-	for i := range procRanges {
-		var sum float64
-		for j := range convKernel {
-			idx := i - preprocessConvSize/2 + j
-			if idx < 0 || idx >= len(procRanges) {
-				continue
+			f.transformed_desired_point = f.transformPoint(f.current_position, f.desired_point)
+			f.findPath()
+			steering_angle := f.setSteeringAngle()
+			speed := 0.0
+			if math.Abs(steering_angle) > f.STRAIGHTS_STEERING_ANGLE {
+				speed = f.CORNERS_SPEED
+			} else {
+				speed = f.STRAIGHTS_SPEED
 			}
-			sum += float64(procRanges[idx])
-		}
-		convResult = append(convResult, sum/float64(preprocessConvSize))
-	}
 
-	maxLidarDist := 100.0 // 임의의 값을 설정해 주세요
-	for i := range convResult {
-		if convResult[i] < 0 {
-			convResult[i] = 0
-		} else if convResult[i] > maxLidarDist {
-			convResult[i] = maxLidarDist
-		}
-	}
-	return convResult
-}
-func (f *fgm) argMin(arr []float64) int {
-	if len(arr) == 0 {
-		return -1 // 배열이 비어있을 경우 -1을 반환합니다.
-	}
-
-	minIndex := 0
-	minValue := arr[0]
-
-	for i := 1; i < len(arr); i++ {
-		if arr[i] < minValue {
-			minIndex = i
-			minValue = arr[i]
-		}
-	}
-
-	return minIndex
-}
-
-func (f *fgm) findMaxGap(freeSpaceRanges []float64) (int, int) {
-	// 마스킹 처리
-	masked := make([]float64, len(freeSpaceRanges))
-	for i, val := range freeSpaceRanges {
-		if val == 0 {
-			masked[i] = math.NaN()
-		} else {
-			masked[i] = val
-		}
-	}
-	// 구간 찾기
-	var slices [][]int
-	start := -1
-	for i, val := range masked {
-		if !math.IsNaN(val) {
-			if start == -1 {
-				start = i
+			msg := &std_msgs.Float32MultiArray{
+				Data: []float32{float32(steering_angle), float32(speed)},
 			}
-		} else {
-			if start != -1 {
-				slices = append(slices, []int{start, i})
-				start = -1
+
+			f.pub.Write(msg)
+			//fmt.Println(steering_angle, speed)
+			x := time.Since(x_now)
+			if x >= 10*time.Millisecond {
+				fmt.Println(x)
 			}
 		}
 	}
-	if start != -1 {
-		slices = append(slices, []int{start, len(masked)})
-	}
-	// 최대 구간 찾기
-	maxLen := slices[0][1] - slices[0][0]
-	chosenSlice := slices[0]
-	if len(slices) > 1 {
-		for _, sl := range slices[1:] {
-			slLen := sl[1] - sl[0]
-			if slLen > maxLen {
-				maxLen = slLen
-				chosenSlice = sl
-			}
-		}
-	}
-
-	return chosenSlice[0], chosenSlice[1]
 }
-func (f *fgm) findBestPoint(startI, endI int, ranges []float64) int {
-	bestPointConvSize := 5 // 임의의 값을 설정해 주세요
-	var averagedMaxGap []float64
-	for i := startI; i < endI; i++ {
-		var sum float64
-		for j := -bestPointConvSize / 2; j <= bestPointConvSize/2; j++ {
-			idx := i + j
-			if idx < 0 || idx >= len(ranges) {
-				continue
-			}
-			sum += ranges[idx]
-		}
-		averagedMaxGap = append(averagedMaxGap, sum/float64(bestPointConvSize))
-	}
+func (f *Pure_Pursuit) get_waypoint() [][]float64 {
+	file_wps, _ := os.Open(f.WPS_FILE_LOCATION)
+	rdr := csv.NewReader(bufio.NewReader(file_wps))
+	csvs, _ := rdr.ReadAll()
+	var temp_waypoint [][]float64
 
-	maxIndex := 0
-	maxValue := averagedMaxGap[0]
-	for i := 1; i < len(averagedMaxGap); i++ {
-		if averagedMaxGap[i] > maxValue {
-			maxIndex = i
-			maxValue = averagedMaxGap[i]
+	for i, row := range csvs {
+		var wprow []float64
+		if i == 0 {
+			continue
 		}
-	}
 
-	return maxIndex + startI
+		splited_row := strings.Split(row[0], ";")
+		sm_num, _ := strconv.ParseFloat(splited_row[0], 64)
+		x_num, _ := strconv.ParseFloat(splited_row[1], 64)
+		y_num, _ := strconv.ParseFloat(splited_row[2], 64)
+		wprow = append(wprow, sm_num, x_num, y_num)
+		temp_waypoint = append(temp_waypoint, wprow)
+
+	}
+	// fmt.Println(temp_waypoint)
+
+	return temp_waypoint
 }
 
-func (f *fgm) getAngle(rangeIndex, rangeLen int) float64 {
-	lidarAngle := (float64(rangeIndex) - (float64(rangeLen) / 2)) * f.radians_per_elem
-	steeringAngle := lidarAngle / 2
+func (f *Pure_Pursuit) Odome(msg *nav_msgs.Odometry) {
+	qx := msg.Pose.Pose.Orientation.X
+	qy := msg.Pose.Pose.Orientation.Y
+	qz := msg.Pose.Pose.Orientation.Z
+	qw := msg.Pose.Pose.Orientation.W
 
-	return steeringAngle
+	siny_cosp := 2.0 * (qw*qz + qx*qy)
+	cosy_cosp := 1.0 - 2.0*(qy*qy+qz*qz)
+
+	current_position_theta := math.Atan2(siny_cosp, cosy_cosp)
+	current_position_x := msg.Pose.Pose.Position.X
+	current_position_y := msg.Pose.Pose.Position.Y
+	f.current_position = make([]float64, 0)
+	f.current_position = append(f.current_position, current_position_x)
+	f.current_position = append(f.current_position, current_position_y)
+	f.current_position = append(f.current_position, current_position_theta)
 }
 
-func time_passage(time_passage []string, ctime time.Duration) int {
-	for i, val := range time_passage { // 비교하는거 추가
-		if strings.Contains(val, "==") {
+func (f *Pure_Pursuit) find_desired_wp() {
+	wpIndexTemp := f.wp_index_current
 
-			num, _ := strconv.Atoi(val[strings.Index(val, "==")+2:])
-			if time.Millisecond*time.Duration(num) < ctime {
-				//if time.Millisecond*time.Duration(num).After(ctime *time.Millisecond){
-				return i
-			}
-		} else if strings.Contains(val, ">") {
-			num, _ := strconv.Atoi(val[strings.Index(val, ">")+1:])
-			if time.Millisecond*time.Duration(num) > ctime {
-				//if time.Millisecond*time.Duration(num).Equal(ctime *time.Millisecond){
-				return i
-			}
+	for {
+		if wpIndexTemp >= len(f.waypoints)-1 {
+			wpIndexTemp = 0
 		}
+
+		distance := f.getDistance(f.waypoints[wpIndexTemp], f.current_position)
+
+		if distance >= f.lookahead_desired {
+
+			if wpIndexTemp-2 >= 0 && wpIndexTemp+2 < len(f.waypoints)-1 {
+				f.waypoints[wpIndexTemp][2] = math.Atan((f.waypoints[wpIndexTemp+2][1] - f.waypoints[wpIndexTemp-2][1]) / (f.waypoints[wpIndexTemp+2][0] - f.waypoints[wpIndexTemp-2][0]))
+			}
+
+			f.desired_point = f.waypoints[wpIndexTemp]
+			f.actual_lookahead = distance
+			break
+
+		}
+		wpIndexTemp++
 	}
-	return len(time_passage)
+}
+
+func (f *Pure_Pursuit) getDistance(a []float64, b []float64) float64 {
+	dx := a[0] - b[0]
+	dy := a[1] - b[1]
+	result := math.Sqrt(math.Pow(dx, 2) + math.Pow(dy, 2))
+	return result
+}
+
+func (f *Pure_Pursuit) transformPoint(origin []float64, target []float64) []float64 { //한번보기
+	theta := math.Pi - origin[2]
+
+	dx := target[0] - origin[0]
+	dy := target[1] - origin[1]
+	dtheta := target[2] + theta
+
+	tf_point_x := dx*math.Cos(theta) - dy*math.Sin(theta)
+	tf_point_y := dx*math.Sin(theta) + dy*math.Cos(theta)
+	tf_point_theta := dtheta
+	var tf_point []float64
+	tf_point = append(tf_point, tf_point_x)
+	tf_point = append(tf_point, tf_point_y)
+	tf_point = append(tf_point, tf_point_theta)
+
+	return tf_point
+}
+func (f *Pure_Pursuit) getDx() {
+	wpMin := f.findLookaheadWP(f.LOOKAHEAD_MIN)
+	wpMax := f.findLookaheadWP(f.LOOKAHEAD_MAX)
+
+	wpMin = f.transformPoint(f.current_position, wpMin)
+	wpMax = f.transformPoint(f.current_position, wpMax)
+
+	f.dx = wpMax[0] - wpMin[0]
+
+}
+func (f *Pure_Pursuit) findLookaheadWP(length float64) []float64 {
+	wpIndexTemp := f.wp_index_current
+	for {
+		if wpIndexTemp >= f.wp_len-1 {
+			wpIndexTemp = 0
+		}
+		distance := f.getDistance(f.waypoints[wpIndexTemp], f.current_position)
+		if distance >= length {
+			break
+		}
+		wpIndexTemp++
+	}
+	return f.waypoints[wpIndexTemp]
+}
+
+func (f *Pure_Pursuit) getLookaheadDesired() {
+	f.lookahead_desired = math.Exp(-(f.DX_GAIN*math.Abs(f.dx) - math.Log(f.LOOKAHEAD_MAX-f.LOOKAHEAD_MIN))) + f.LOOKAHEAD_MIN
+}
+
+func (f *Pure_Pursuit) findPath() {
+
+	// Right cornering
+	if f.transformed_desired_point[0] > 0 {
+		f.goal_path_radius = math.Pow(f.actual_lookahead, 2) / (2 * f.transformed_desired_point[0])
+		f.goal_path_theta = math.Asin(f.transformed_desired_point[1] / f.goal_path_radius)
+		f.steering_direction = -1
+	} else if f.transformed_desired_point[0] < 0 {
+		f.goal_path_radius = math.Pow(f.actual_lookahead, 2) / ((-2) * f.transformed_desired_point[0])
+		f.goal_path_theta = math.Asin(f.transformed_desired_point[1] / f.goal_path_radius)
+		f.steering_direction = 1
+	} else {
+		fmt.Printf("raised else option. %v - %v\n", f.transformed_desired_point, time.Now())
+	}
+}
+
+func (f *Pure_Pursuit) setSteeringAngle() float64 {
+	steeringAngle := math.Atan2(f.RACECAR_LENGTH, f.goal_path_radius)
+	return float64(f.steering_direction)*steeringAngle - 0.006
+}
+
+func (f *Pure_Pursuit) getWaypoint_ros1(wpsFileLocation string) [][]float64 {
+	file, err := os.Open(wpsFileLocation)
+	if err != nil {
+		fmt.Errorf("can't read waypoint file: %v", err)
+		return nil
+	}
+	defer file.Close()
+
+	reader := csv.NewReader(file)
+	reader.Comma = ','
+
+	records, err := reader.ReadAll()
+	if err != nil {
+		fmt.Errorf("failed to read waypoints from file: %v", err)
+		return nil
+	}
+
+	waypoints := make([][]float64, len(records))
+	for i, record := range records {
+		waypoint := make([]float64, len(record))
+		for j, value := range record {
+
+			num, err := strconv.ParseFloat(value, 64)
+
+			if err != nil {
+				fmt.Errorf("failed to parse waypoint value: %v", err)
+				return nil
+			}
+			waypoint[j] = num
+		}
+		waypoints[i] = waypoint
+
+	}
+
+	return waypoints
 }
