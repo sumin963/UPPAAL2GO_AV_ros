@@ -20,7 +20,7 @@ Execution delays are explicitly represented in Uppaal using delay constructs and
 Within each node, scheduling strictly adheres to ROS’s non-preemptive FIFO policy based on the callback queue mechanism, where messages are processed in the order they arrive.
 For inter-node communication, message passing is modeled using subQueues, each of which is centrally managed by a dedicated Policy_FIFO automaton to enforce FIFO delivery across nodes.
 
-<img width="887" height="272" alt="image" src="https://github.com/user-attachments/assets/706a4fba-ff89-4dee-bbf2-ee54b5a3193c" />
+<img width="881" height="558" alt="image" src="https://github.com/user-attachments/assets/64aeee66-de35-40ce-8be5-47b991a75172" />
 
 
 ROS1 faces challenges in meeting hard real-time requirements due to its single-threaded ros::spin() execution model and the non-deterministic nature of message queue processing.
