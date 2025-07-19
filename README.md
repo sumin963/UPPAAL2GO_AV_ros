@@ -15,8 +15,13 @@ In this study, each ROS node is modeled as a Node template within the Uppaal mod
 Callback processing for each node is modeled separately using CallbackQueue and rosSpin, accurately reflecting ROS’s asynchronous event-handling structure.
 Execution delays are explicitly represented in Uppaal using delay constructs and clocks. For example, the waiting time between message reception and callback execution is modeled as a bounded delay specified in the CallbackQueue, while the execution itself is expressed in rosSpin using guards and invariants to capture timing constraints.
 
+<img width="2323" height="1249" alt="image" src="https://github.com/user-attachments/assets/dfd73192-0d94-4015-bd24-5458257a02be" />
+
 Within each node, scheduling strictly adheres to ROS’s non-preemptive FIFO policy based on the callback queue mechanism, where messages are processed in the order they arrive.
 For inter-node communication, message passing is modeled using subQueues, each of which is centrally managed by a dedicated Policy_FIFO automaton to enforce FIFO delivery across nodes.
+
+<img width="887" height="272" alt="image" src="https://github.com/user-attachments/assets/706a4fba-ff89-4dee-bbf2-ee54b5a3193c" />
+
 
 ROS1 faces challenges in meeting hard real-time requirements due to its single-threaded ros::spin() execution model and the non-deterministic nature of message queue processing.
 In particular, the processing order of the callback queue may not exactly match the message arrival order, and execution times can be difficult to predict.
