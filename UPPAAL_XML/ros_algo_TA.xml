@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!DOCTYPE nta PUBLIC '-//Uppaal Team//DTD Flat System 1.1//EN' 'http://www.it.uu.se/research/group/darts/uppaal/flat-1_2.dtd'>
+<!DOCTYPE nta PUBLIC '-//Uppaal Team//DTD Flat System 1.6//EN' 'http://www.it.uu.se/research/group/darts/uppaal/flat-1_6.dtd'>
 <nta>
 	<declaration>// Place global declarations here
 const int pubsubtime=1;
@@ -18,9 +18,9 @@ typedef int[0,pub_num] pub_len;
 typedef int[0,sen_num] sen_pub;
 
 //LP,GP,OD,CR,Stress
-const int ctimemin[pub]={1,1,1,1,6};
-const int ctimemax[pub]={2,2,2,2,6};
-const int period[pub]={10,10,10,10,20};
+const int ctimemin[pub]={0,0,0,0,6};
+const int ctimemax[pub]={3,3,3,3,6};
+const int period[pub]={15,15,15,15,20};
 
 //Lidar, Odome
 const int sensor_period[sen_pub]={14,18, 18};
@@ -98,13 +98,13 @@ void func(){
 			<committed/>
 		</location>
 		<init ref="id0"/>
-		<transition>
+		<transition id="id2">
 			<source ref="id1"/>
 			<target ref="id0"/>
 			<label kind="assignment" x="-85" y="33">t=0</label>
 			<nail x="-119" y="50"/>
 		</transition>
-		<transition>
+		<transition id="id3">
 			<source ref="id0"/>
 			<target ref="id1"/>
 			<label kind="guard" x="-187" y="-52">t==spinRate</label>
@@ -116,63 +116,63 @@ void func(){
 		<name>sen_CallbackQueue</name>
 		<parameter>const sen_pub pub_id</parameter>
 		<declaration>clock t1;</declaration>
-		<location id="id2" x="-272" y="-34">
+		<location id="id4" x="-272" y="-34">
 			<name x="-297" y="-68">Init</name>
 		</location>
-		<location id="id3" x="-272" y="-136">
+		<location id="id5" x="-272" y="-136">
 			<committed/>
 		</location>
-		<location id="id4" x="-272" y="34">
+		<location id="id6" x="-272" y="34">
 			<committed/>
 		</location>
-		<location id="id5" x="-136" y="-34">
+		<location id="id7" x="-136" y="-34">
 			<name x="-146" y="-68">Wait</name>
 			<label kind="invariant" x="-146" y="-17">t1&lt;=TimeOut</label>
 		</location>
-		<location id="id6" x="-408" y="-34">
+		<location id="id8" x="-408" y="-34">
 			<name x="-467" y="-68">Processing</name>
 			<label kind="invariant" x="-476" y="-25">t1&lt;=CBmax</label>
 		</location>
-		<init ref="id2"/>
-		<transition>
-			<source ref="id4"/>
-			<target ref="id6"/>
+		<init ref="id4"/>
+		<transition id="id9">
+			<source ref="id6"/>
+			<target ref="id8"/>
 			<label kind="synchronisation" x="-408" y="25">sen_getMsgs[pub_id]!</label>
 			<label kind="assignment" x="-408" y="42">t1=0, sen_CBavail[pub_id]=0</label>
 		</transition>
-		<transition>
-			<source ref="id5"/>
-			<target ref="id4"/>
+		<transition id="id10">
+			<source ref="id7"/>
+			<target ref="id6"/>
 			<label kind="guard" x="-221" y="8">sen_CBavail[pub_id]&gt;0</label>
 			<label kind="synchronisation" x="-221" y="25">sen_go[pub_id]?</label>
 		</transition>
-		<transition>
-			<source ref="id6"/>
-			<target ref="id2"/>
+		<transition id="id11">
+			<source ref="id8"/>
+			<target ref="id4"/>
 			<label kind="guard" x="-391" y="-51">t1&gt;=CBmin</label>
 		</transition>
-		<transition>
-			<source ref="id5"/>
-			<target ref="id2"/>
+		<transition id="id12">
+			<source ref="id7"/>
+			<target ref="id4"/>
 			<label kind="guard" x="-255" y="-59">t1==TimeOut</label>
 		</transition>
-		<transition>
-			<source ref="id3"/>
-			<target ref="id5"/>
+		<transition id="id13">
+			<source ref="id5"/>
+			<target ref="id7"/>
 			<label kind="guard" x="-246" y="-144">sen_CBavail[pub_id]==0</label>
 			<label kind="assignment" x="-246" y="-127">t1=0</label>
 		</transition>
-		<transition>
-			<source ref="id3"/>
-			<target ref="id6"/>
+		<transition id="id14">
+			<source ref="id5"/>
+			<target ref="id8"/>
 			<label kind="guard" x="-416" y="-144">sen_CBavail[pub_id]&gt;0</label>
 			<label kind="synchronisation" x="-416" y="-127">sen_getMsgs[pub_id]!</label>
 			<label kind="assignment" x="-416" y="-110">sen_CBavail[pub_id]=0,
 t1=0</label>
 		</transition>
-		<transition>
-			<source ref="id2"/>
-			<target ref="id3"/>
+		<transition id="id15">
+			<source ref="id4"/>
+			<target ref="id5"/>
 			<label kind="synchronisation" x="-331" y="-85">sen_spinOnce[pub_id]?</label>
 		</transition>
 	</template>
@@ -180,57 +180,57 @@ t1=0</label>
 		<name>sen_subQueue</name>
 		<parameter>const sen_pub pub_id, const int SIZE</parameter>
 		<declaration>int[0, SIZE] MsgCount=0;</declaration>
-		<location id="id7" x="-272" y="-68">
+		<location id="id16" x="-272" y="-68">
 			<name x="-282" y="-102">Init</name>
 		</location>
-		<location id="id8" x="-102" y="-68">
+		<location id="id17" x="-102" y="-68">
 			<name x="-112" y="-102">Overflow</name>
 		</location>
-		<location id="id9" x="-442" y="-68">
+		<location id="id18" x="-442" y="-68">
 			<name x="-476" y="-102">receiveMsg</name>
 			<committed/>
 		</location>
-		<init ref="id7"/>
-		<transition>
-			<source ref="id7"/>
-			<target ref="id7"/>
+		<init ref="id16"/>
+		<transition id="id19">
+			<source ref="id16"/>
+			<target ref="id16"/>
 			<label kind="synchronisation" x="-314" y="34">sen_getMsgs[pub_id]?</label>
 			<label kind="assignment" x="-306" y="51">MsgCount=0</label>
 			<nail x="-306" y="34"/>
 			<nail x="-238" y="34"/>
 		</transition>
-		<transition>
-			<source ref="id9"/>
-			<target ref="id7"/>
+		<transition id="id20">
+			<source ref="id18"/>
+			<target ref="id16"/>
 			<label kind="synchronisation" x="-433" y="0">sen_go[pub_id]!</label>
 			<nail x="-357" y="0"/>
 		</transition>
-		<transition>
-			<source ref="id7"/>
-			<target ref="id9"/>
+		<transition id="id21">
+			<source ref="id16"/>
+			<target ref="id18"/>
 			<label kind="guard" x="-518" y="-187">MsgCount&lt;SIZE</label>
 			<label kind="synchronisation" x="-518" y="-170">sen_queue[pub_id][0]?</label>
 			<label kind="assignment" x="-518" y="-153">MsgCount++, sen_CBavail[pub_id]++</label>
 			<nail x="-357" y="-136"/>
 		</transition>
-		<transition>
-			<source ref="id8"/>
-			<target ref="id8"/>
+		<transition id="id22">
+			<source ref="id17"/>
+			<target ref="id17"/>
 			<label kind="guard" x="-25" y="-136">MsgCount&gt;=SIZE</label>
 			<label kind="synchronisation" x="-25" y="-119">sen_queue[pub_id][0]?</label>
 			<nail x="-34" y="-136"/>
 			<nail x="-34" y="0"/>
 		</transition>
-		<transition>
-			<source ref="id8"/>
-			<target ref="id7"/>
+		<transition id="id23">
+			<source ref="id17"/>
+			<target ref="id16"/>
 			<label kind="synchronisation" x="-204" y="0">sen_getMsgs[pub_id]?</label>
 			<label kind="assignment" x="-204" y="17">MsgCount=0</label>
 			<nail x="-178" y="0"/>
 		</transition>
-		<transition>
-			<source ref="id7"/>
-			<target ref="id8"/>
+		<transition id="id24">
+			<source ref="id16"/>
+			<target ref="id17"/>
 			<label kind="guard" x="-238" y="-178">MsgCount&gt;=SIZE</label>
 			<label kind="synchronisation" x="-238" y="-161">sen_queue[pub_id][0]?</label>
 			<nail x="-187" y="-136"/>
@@ -242,83 +242,83 @@ t1=0</label>
 		<declaration>clock t;
 clock c;
 </declaration>
-		<location id="id10" x="578" y="136">
+		<location id="id25" x="578" y="136">
 			<name x="586" y="102">Wait</name>
 			<label kind="invariant" x="595" y="119">t&lt;=period[pub_id]</label>
 		</location>
-		<location id="id11" x="306" y="17">
+		<location id="id26" x="306" y="17">
 			<name x="280" y="-17">Processing</name>
 			<label kind="invariant" x="161" y="25">c&lt;=ctimemax[pub_id]</label>
 		</location>
-		<location id="id12" x="578" y="17">
+		<location id="id27" x="578" y="17">
 		</location>
-		<location id="id13" x="170" y="136">
+		<location id="id28" x="170" y="136">
 			<name x="160" y="102">Init</name>
 			<committed/>
 		</location>
-		<location id="id14" x="306" y="136">
+		<location id="id29" x="306" y="136">
 			<name x="263" y="102">Ready</name>
 		</location>
-		<init ref="id13"/>
-		<transition>
-			<source ref="id13"/>
-			<target ref="id14"/>
+		<init ref="id28"/>
+		<transition id="id30">
+			<source ref="id28"/>
+			<target ref="id29"/>
 			<label kind="synchronisation" x="187" y="161">ready_node[pub_id]!</label>
 			<label kind="assignment" x="187" y="178">t=0,c=0</label>
 		</transition>
-		<transition>
-			<source ref="id14"/>
-			<target ref="id11"/>
-			<label kind="guard" x="314" y="42">pub_id == isRunning(pub_id)</label>
+		<transition id="id31">
+			<source ref="id29"/>
+			<target ref="id26"/>
+			<label kind="guard" x="314" y="42">1 == isRunning(pub_id)</label>
 			<label kind="synchronisation" x="314" y="59">run!</label>
 			<label kind="assignment" x="314" y="76">c=0</label>
 		</transition>
-		<transition>
-			<source ref="id10"/>
-			<target ref="id14"/>
+		<transition id="id32">
+			<source ref="id25"/>
+			<target ref="id29"/>
 			<label kind="guard" x="348" y="145">t==period[pub_id]</label>
 			<label kind="synchronisation" x="348" y="161">ready_node[pub_id]!</label>
 			<label kind="assignment" x="348" y="178">t=0,c=0</label>
 		</transition>
-		<transition>
-			<source ref="id11"/>
-			<target ref="id12"/>
+		<transition id="id33">
+			<source ref="id26"/>
+			<target ref="id27"/>
 			<label kind="guard" x="357" y="0">c&gt;=ctimemin[pub_id]</label>
 			<label kind="synchronisation" x="357" y="17">remove_node[pub_id]!</label>
 			<label kind="assignment" x="324" y="17">c=0</label>
 		</transition>
-		<transition>
-			<source ref="id12"/>
-			<target ref="id10"/>
+		<transition id="id34">
+			<source ref="id27"/>
+			<target ref="id25"/>
 			<label kind="synchronisation" x="586" y="34">queue[pub_id][0]!</label>
 			<label kind="assignment" x="578" y="68">c=0</label>
 		</transition>
 	</template>
 	<template>
 		<name>Polisy_FIFO</name>
-		<location id="id15" x="-170" y="-170">
+		<location id="id35" x="-170" y="-170">
 			<name x="-180" y="-204">Init</name>
 		</location>
-		<location id="id16" x="-170" y="-68">
+		<location id="id36" x="-170" y="-68">
 			<committed/>
 		</location>
-		<init ref="id15"/>
-		<transition>
-			<source ref="id15"/>
-			<target ref="id16"/>
+		<init ref="id35"/>
+		<transition id="id37">
+			<source ref="id35"/>
+			<target ref="id36"/>
 			<label kind="select" x="-306" y="-178">e:pub</label>
 			<label kind="synchronisation" x="-357" y="-161">remove_node[e]?</label>
 			<label kind="assignment" x="-306" y="-136">remove()</label>
 			<nail x="-238" y="-170"/>
 			<nail x="-238" y="-68"/>
 		</transition>
-		<transition>
-			<source ref="id16"/>
-			<target ref="id15"/>
+		<transition id="id38">
+			<source ref="id36"/>
+			<target ref="id35"/>
 		</transition>
-		<transition>
-			<source ref="id15"/>
-			<target ref="id16"/>
+		<transition id="id39">
+			<source ref="id35"/>
+			<target ref="id36"/>
 			<label kind="select" x="-93" y="-187">e:pub</label>
 			<label kind="synchronisation" x="-93" y="-170">ready_node[e]?</label>
 			<label kind="assignment" x="-93" y="-153">insert_buf(e)</label>
@@ -330,24 +330,24 @@ clock c;
 		<name>Sensor</name>
 		<parameter>const sen_pub sen_pub_id</parameter>
 		<declaration>clock t;</declaration>
-		<location id="id17" x="-578" y="-68">
+		<location id="id40" x="-578" y="-68">
 			<name x="-588" y="-102">Init</name>
 			<label kind="invariant" x="-739" y="-42">t&lt;=sensor_period[sen_pub_id]</label>
 		</location>
-		<location id="id18" x="-442" y="-68">
+		<location id="id41" x="-442" y="-68">
 			<committed/>
 		</location>
-		<init ref="id17"/>
-		<transition>
-			<source ref="id18"/>
-			<target ref="id17"/>
+		<init ref="id40"/>
+		<transition id="id42">
+			<source ref="id41"/>
+			<target ref="id40"/>
 			<label kind="synchronisation" x="-467" y="-42">sen_queue[sen_pub_id][0]!</label>
 			<label kind="assignment" x="-467" y="-25">t=0</label>
 			<nail x="-510" y="0"/>
 		</transition>
-		<transition>
-			<source ref="id17"/>
-			<target ref="id18"/>
+		<transition id="id43">
+			<source ref="id40"/>
+			<target ref="id41"/>
 			<label kind="guard" x="-569" y="-161">t==sensor_period[sen_pub_id]</label>
 			<nail x="-510" y="-136"/>
 		</transition>
@@ -356,23 +356,23 @@ clock c;
 		<name>rosSpin</name>
 		<parameter>const pub pub_id</parameter>
 		<declaration>clock t;</declaration>
-		<location id="id19" x="-374" y="-67">
+		<location id="id44" x="-374" y="-67">
 			<name x="-384" y="-101">Init</name>
 			<label kind="invariant" x="-384" y="-50">t&lt;=spinRate</label>
 		</location>
-		<location id="id20" x="-212" y="-68">
+		<location id="id45" x="-212" y="-68">
 			<committed/>
 		</location>
-		<init ref="id19"/>
-		<transition>
-			<source ref="id20"/>
-			<target ref="id19"/>
+		<init ref="id44"/>
+		<transition id="id46">
+			<source ref="id45"/>
+			<target ref="id44"/>
 			<label kind="assignment" x="-255" y="-51">t=0</label>
 			<nail x="-289" y="-34"/>
 		</transition>
-		<transition>
-			<source ref="id19"/>
-			<target ref="id20"/>
+		<transition id="id47">
+			<source ref="id44"/>
+			<target ref="id45"/>
 			<label kind="guard" x="-357" y="-136">t==spinRate</label>
 			<label kind="synchronisation" x="-357" y="-119">spinOnce[pub_id]!</label>
 			<nail x="-289" y="-102"/>
@@ -382,63 +382,63 @@ clock c;
 		<name>CallbackQueue</name>
 		<parameter>const pub pub_id</parameter>
 		<declaration>clock t1;</declaration>
-		<location id="id21" x="-272" y="-34">
+		<location id="id48" x="-272" y="-34">
 			<name x="-297" y="-68">Init</name>
 		</location>
-		<location id="id22" x="-272" y="-136">
+		<location id="id49" x="-272" y="-136">
 			<committed/>
 		</location>
-		<location id="id23" x="-272" y="34">
+		<location id="id50" x="-272" y="34">
 			<committed/>
 		</location>
-		<location id="id24" x="-136" y="-34">
+		<location id="id51" x="-136" y="-34">
 			<name x="-146" y="-68">Wait</name>
 			<label kind="invariant" x="-146" y="-17">t1&lt;=TimeOut</label>
 		</location>
-		<location id="id25" x="-408" y="-34">
+		<location id="id52" x="-408" y="-34">
 			<name x="-467" y="-68">Processing</name>
 			<label kind="invariant" x="-476" y="-25">t1&lt;=CBmax</label>
 		</location>
-		<init ref="id21"/>
-		<transition>
-			<source ref="id23"/>
-			<target ref="id25"/>
+		<init ref="id48"/>
+		<transition id="id53">
+			<source ref="id50"/>
+			<target ref="id52"/>
 			<label kind="synchronisation" x="-408" y="25">getMsgs[pub_id]!</label>
 			<label kind="assignment" x="-408" y="42">t1=0, CBavail[pub_id]=0</label>
 		</transition>
-		<transition>
-			<source ref="id24"/>
-			<target ref="id23"/>
+		<transition id="id54">
+			<source ref="id51"/>
+			<target ref="id50"/>
 			<label kind="guard" x="-221" y="8">CBavail[pub_id]&gt;0</label>
 			<label kind="synchronisation" x="-221" y="25">go[pub_id]?</label>
 		</transition>
-		<transition>
-			<source ref="id25"/>
-			<target ref="id21"/>
+		<transition id="id55">
+			<source ref="id52"/>
+			<target ref="id48"/>
 			<label kind="guard" x="-391" y="-51">t1&gt;=CBmin</label>
 		</transition>
-		<transition>
-			<source ref="id24"/>
-			<target ref="id21"/>
+		<transition id="id56">
+			<source ref="id51"/>
+			<target ref="id48"/>
 			<label kind="guard" x="-255" y="-59">t1==TimeOut</label>
 		</transition>
-		<transition>
-			<source ref="id22"/>
-			<target ref="id24"/>
+		<transition id="id57">
+			<source ref="id49"/>
+			<target ref="id51"/>
 			<label kind="guard" x="-246" y="-144">CBavail[pub_id]==0</label>
 			<label kind="assignment" x="-246" y="-127">t1=0</label>
 		</transition>
-		<transition>
-			<source ref="id22"/>
-			<target ref="id25"/>
+		<transition id="id58">
+			<source ref="id49"/>
+			<target ref="id52"/>
 			<label kind="guard" x="-416" y="-144">CBavail[pub_id]&gt;0</label>
 			<label kind="synchronisation" x="-416" y="-127">getMsgs[pub_id]!</label>
 			<label kind="assignment" x="-416" y="-110">CBavail[pub_id]=0,
 t1=0</label>
 		</transition>
-		<transition>
-			<source ref="id21"/>
-			<target ref="id22"/>
+		<transition id="id59">
+			<source ref="id48"/>
+			<target ref="id49"/>
 			<label kind="synchronisation" x="-331" y="-85">spinOnce[pub_id]?</label>
 		</transition>
 	</template>
@@ -446,57 +446,57 @@ t1=0</label>
 		<name>subQueue</name>
 		<parameter>const pub pub_id, const int SIZE</parameter>
 		<declaration>int[0, SIZE] MsgCount=0;</declaration>
-		<location id="id26" x="-272" y="-68">
+		<location id="id60" x="-272" y="-68">
 			<name x="-282" y="-102">Init</name>
 		</location>
-		<location id="id27" x="-102" y="-68">
+		<location id="id61" x="-102" y="-68">
 			<name x="-112" y="-102">Overflow</name>
 		</location>
-		<location id="id28" x="-442" y="-68">
+		<location id="id62" x="-442" y="-68">
 			<name x="-476" y="-102">receiveMsg</name>
 			<committed/>
 		</location>
-		<init ref="id26"/>
-		<transition>
-			<source ref="id26"/>
-			<target ref="id26"/>
+		<init ref="id60"/>
+		<transition id="id63">
+			<source ref="id60"/>
+			<target ref="id60"/>
 			<label kind="synchronisation" x="-314" y="34">getMsgs[pub_id]?</label>
 			<label kind="assignment" x="-306" y="51">MsgCount=0</label>
 			<nail x="-306" y="34"/>
 			<nail x="-238" y="34"/>
 		</transition>
-		<transition>
-			<source ref="id28"/>
-			<target ref="id26"/>
+		<transition id="id64">
+			<source ref="id62"/>
+			<target ref="id60"/>
 			<label kind="synchronisation" x="-433" y="0">go[pub_id]!</label>
 			<nail x="-357" y="0"/>
 		</transition>
-		<transition>
-			<source ref="id26"/>
-			<target ref="id28"/>
+		<transition id="id65">
+			<source ref="id60"/>
+			<target ref="id62"/>
 			<label kind="guard" x="-518" y="-187">MsgCount&lt;SIZE</label>
 			<label kind="synchronisation" x="-518" y="-170">queue[pub_id][0]?</label>
 			<label kind="assignment" x="-518" y="-153">MsgCount++, CBavail[pub_id]++</label>
 			<nail x="-357" y="-136"/>
 		</transition>
-		<transition>
-			<source ref="id27"/>
-			<target ref="id27"/>
+		<transition id="id66">
+			<source ref="id61"/>
+			<target ref="id61"/>
 			<label kind="guard" x="-25" y="-136">MsgCount&gt;=SIZE</label>
 			<label kind="synchronisation" x="-25" y="-119">queue[pub_id][0]?</label>
 			<nail x="-34" y="-136"/>
 			<nail x="-34" y="0"/>
 		</transition>
-		<transition>
-			<source ref="id27"/>
-			<target ref="id26"/>
+		<transition id="id67">
+			<source ref="id61"/>
+			<target ref="id60"/>
 			<label kind="synchronisation" x="-204" y="0">getMsgs[pub_id]?</label>
 			<label kind="assignment" x="-204" y="17">MsgCount=0</label>
 			<nail x="-178" y="0"/>
 		</transition>
-		<transition>
-			<source ref="id26"/>
-			<target ref="id27"/>
+		<transition id="id68">
+			<source ref="id60"/>
+			<target ref="id61"/>
 			<label kind="guard" x="-238" y="-178">MsgCount&gt;=SIZE</label>
 			<label kind="synchronisation" x="-238" y="-161">queue[pub_id][0]?</label>
 			<nail x="-187" y="-136"/>
@@ -509,64 +509,64 @@ t1=0</label>
 clock y;
 clock c;
 clock t;</declaration>
-		<location id="id29" x="-68" y="-34">
+		<location id="id69" x="-68" y="-34">
 		</location>
-		<location id="id30" x="136" y="102">
+		<location id="id70" x="136" y="102">
 		</location>
-		<location id="id31" x="136" y="-34">
+		<location id="id71" x="136" y="-34">
 			<label kind="invariant" x="126" y="-17">c' == isRunning(pub_id) &amp;&amp; c&lt;=ctimemax[pub_id]</label>
 		</location>
-		<location id="id32" x="-68" y="102">
+		<location id="id72" x="-68" y="102">
 			<label kind="invariant" x="-204" y="85">t&lt;=period[pub_id]</label>
 		</location>
-		<location id="id33" x="-68" y="238">
+		<location id="id73" x="-68" y="238">
 			<label kind="invariant" x="-212" y="229">t&lt;=period[pub_id] &amp;&amp; y'==0</label>
 		</location>
-		<init ref="id29"/>
-		<transition>
-			<source ref="id33"/>
-			<target ref="id32"/>
+		<init ref="id69"/>
+		<transition id="id74">
+			<source ref="id73"/>
+			<target ref="id72"/>
 			<label kind="guard" x="-178" y="127">buffer_len==0</label>
 			<nail x="-102" y="153"/>
 		</transition>
-		<transition>
-			<source ref="id33"/>
-			<target ref="id29"/>
+		<transition id="id75">
+			<source ref="id73"/>
+			<target ref="id69"/>
 			<label kind="guard" x="-382" y="51">t==period[pub_id]</label>
 			<label kind="assignment" x="-382" y="76">t=0</label>
 			<nail x="-238" y="102"/>
 		</transition>
-		<transition>
-			<source ref="id32"/>
-			<target ref="id29"/>
+		<transition id="id76">
+			<source ref="id72"/>
+			<target ref="id69"/>
 			<label kind="guard" x="-59" y="34">t==period[pub_id]</label>
 			<label kind="assignment" x="-59" y="51">t=0</label>
 		</transition>
-		<transition>
-			<source ref="id32"/>
-			<target ref="id33"/>
+		<transition id="id77">
+			<source ref="id72"/>
+			<target ref="id73"/>
 			<label kind="guard" x="-93" y="178">buffer_len&gt;0</label>
 		</transition>
-		<transition>
-			<source ref="id30"/>
-			<target ref="id33"/>
+		<transition id="id78">
+			<source ref="id70"/>
+			<target ref="id73"/>
 			<label kind="guard" x="-17" y="195">buffer_len&gt;0</label>
 		</transition>
-		<transition>
-			<source ref="id30"/>
-			<target ref="id32"/>
+		<transition id="id79">
+			<source ref="id70"/>
+			<target ref="id72"/>
 			<label kind="guard" x="-34" y="119">buffer_len==0</label>
 		</transition>
-		<transition>
-			<source ref="id31"/>
-			<target ref="id30"/>
+		<transition id="id80">
+			<source ref="id71"/>
+			<target ref="id70"/>
 			<label kind="guard" x="136" y="34">c&gt;=ctimemin[pub_id]</label>
 			<label kind="assignment" x="136" y="51">remove()</label>
 			<nail x="136" y="68"/>
 		</transition>
-		<transition>
-			<source ref="id29"/>
-			<target ref="id31"/>
+		<transition id="id81">
+			<source ref="id69"/>
+			<target ref="id71"/>
 			<label kind="guard" x="-50" y="-68">stress_condition==true</label>
 			<label kind="assignment" x="-51" y="-59">c=0,insert_buf(pub_id)</label>
 			<nail x="33" y="-34"/>
@@ -618,16 +618,16 @@ system lp,gp,od,cr,lp_cr,gp_cr,od_cr,lp_spin,gp_spin,od_spin,lpcb,gpcb,odcb, lid
 	<queries>
 		<query>
 			<formula>A[] not lp_cr.Overflow</formula>
-			<comment></comment>
+			<comment/>
 		</query>
 		<query>
 			<formula>A[] not deadlock</formula>
-			<comment></comment>
+			<comment/>
 		</query>
 		<query>
 			<formula>E&lt;&gt; deadlock
 			</formula>
-			<comment></comment>
+			<comment/>
 		</query>
 	</queries>
 </nta>
