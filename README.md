@@ -8,7 +8,7 @@ Formal verification and analysis of the timing behavior of a ROS-based path plan
 # System Modeling Features
 The entire data flow—from sensor input to control command generation—was modeled with explicit timing constraints.
 
-ros_algo_TA.xml
+UPPAAL/ros_algo_TA.xml
 ![image](https://github.com/user-attachments/assets/2a4b22c8-a8b8-4d5d-bef5-f93cb3cd5867)
 
 In this study, each ROS node is modeled as a Node template within the Uppaal model. The main functional modules—Global Planner, Local Planner, Obstacle Detection, and Controller—are each represented as individual instances.
