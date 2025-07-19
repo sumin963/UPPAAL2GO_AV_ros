@@ -1,24 +1,29 @@
 # Example of formal verification of path planning software in a ROS environment 
-이 저장소는 Jetson TX2 임베디드 플랫폼 상에서 동작하는 ROS 기반 자율주행 시스템의 정형 모델(Uppaal)과 Go 언어 기반 실행 프레임워크를 제공합니다. 
-본 구현은 *F1TENTH 자율주행 플랫폼의 하드웨어 사양을 기준으로 구성되었으며, ROS 미들웨어를 직접 호출함으로써 실제 ROS 시스템과의 연동을 기반으로 동작합니다.
+This repository provides a formal model (Uppaal) and a Go-based execution framework for a ROS-based autonomous driving system running on the Jetson TX2 embedded platform.
+The implementation is based on the hardware specifications of the F1TENTH autonomous driving platform, and operates in conjunction with a real ROS system by directly invoking ROS middleware.
 
-# 프로젝트 개요
-Jetson TX2 기반 ROS 경로 계획 시스템의 시간 동작을 정형 검증하고 분석
+# Project Overview
+Formal verification and analysis of the timing behavior of a ROS-based path planning system on the Jetson TX2 platform.
 
-# 시스템 모델링 특징
-센서 입력부터 제어 명령 생성까지의 전체 데이터 흐름을 시간 제약과 함께 모델링하였습니다.
+# System Modeling Features
+The entire data flow—from sensor input to control command generation—was modeled with explicit timing constraints.
 
 ros_algo_TA.xml
 ![image](https://github.com/user-attachments/assets/2a4b22c8-a8b8-4d5d-bef5-f93cb3cd5867)
 
-본 연구에서 각 ROS 노드는 Uppaal 모델 내에서 Node 템플릿으로 모델링되며, 주요 기능 모듈(Global Planner, Local Planner, Obstacle Detection, Controller)을 각각 하나의 인스턴스로 나타낸다. 각 노드의 콜백 처리는 CallbackQueue와 rosSpin으로 분리하여 표현되며, 이는 ROS의 비동기 이벤트 처리 구조를 충실히 반영한다. 실행 지연(execution delay)은 Uppaal 내의 delay 구문과 clock을 통해 명시적으로 표현된다. 예를 들어, 메시지를 수신한 이후 콜백이 실행되기까지의 대기 시간은 CallbackQueue에 명시된 bounded delay로 모델링되며, 실행 자체는 rosSpin에서 guard와 invariant를 통해 시간 제약과 함께 표현된다. 
+In this study, each ROS node is modeled as a Node template within the Uppaal model. The main functional modules—Global Planner, Local Planner, Obstacle Detection, and Controller—are each represented as individual instances.
+Callback processing for each node is modeled separately using CallbackQueue and rosSpin, accurately reflecting ROS’s asynchronous event-handling structure.
+Execution delays are explicitly represented in Uppaal using delay constructs and clocks. For example, the waiting time between message reception and callback execution is modeled as a bounded delay specified in the CallbackQueue, while the execution itself is expressed in rosSpin using guards and invariants to capture timing constraints.
 
-노드 내(intra-node) 스케줄링은 ROS의 콜백 큐 기반 비선점(non-preemptive) FIFO 정책을 그대로 따르며, 이는 CallbackQueue에서 메시지가 도착 순서대로 처리되는 형태로 모델링된다. 노드 간(inter-node) 메시지 전달 역시 subQueue로 표현되며, 각 큐는 Polisy_FIFO 자동자에 의해 중앙 집중적으로 제어된다. 
+Within each node, scheduling strictly adheres to ROS’s non-preemptive FIFO policy based on the callback queue mechanism, where messages are processed in the order they arrive.
+For inter-node communication, message passing is modeled using subQueues, each of which is centrally managed by a dedicated Policy_FIFO automaton to enforce FIFO delivery across nodes.
 
-ROS1은 단일 스레드 기반의 ros::spin() 처리 구조와 비결정적인 메시지 큐 처리로 인해 하드 실시간(hard real-time) 요구사항을 만족하기 어렵다. 특히, 콜백 큐의 처리 순서가 메시지 도착 순서와 정확히 일치하지 않거나, 실행 시간 예측이 어려운 경우가 발생한다. 본 연구는 이러한 한계를 정형 모델을 통해 형식적으로 분석하고자 하며, Uppaal을 사용해 시간 제약과 상태 동기화를 명시적으로 정의함으로써 ROS의 비결정적 동작을 이론적으로 보완하고 있다. 
+ROS1 faces challenges in meeting hard real-time requirements due to its single-threaded ros::spin() execution model and the non-deterministic nature of message queue processing.
+In particular, the processing order of the callback queue may not exactly match the message arrival order, and execution times can be difficult to predict.
+This study aims to formally analyze these limitations using a formal model, and leverages Uppaal to explicitly define timing constraints and state synchronization, thereby theoretically compensating for the non-deterministic behavior inherent in ROS.
+ROS2, with its DDS-based architecture, allows for more flexible Quality of Service (QoS) configurations.
+The modeling approach proposed in this study is also extensible to ROS2 environments.
 
-ROS2는 DDS 기반 구조로 더 유연한 QoS 설정이 가능하며, 본 연구의 방식은 ROS2 환경에도 확장 가능하다.
-
-# 관련 문서
+# Related Documents
 -*https://github.com/f1tenth
 -https://uppaal.org
